@@ -1,0 +1,129 @@
+public static List<Employee> GetEmployeesByDepartment(int departmentId)
+{
+    List<Employee> employees = new List<Employee>();
+
+    try
+    {
+        string connectionString = ConfigurationManager.ConnectionStrings["OracleDbConnection"].ConnectionString;
+
+        using (OracleConnection connection = new OracleConnection(connectionString))
+        {
+            connection.Open();
+            string query = @"SELECT * FROM cim_emp_master WHERE DEPARTMENT = :departmentId";
+
+            using (OracleCommand command = new OracleCommand(query, connection))
+            {
+                command.Parameters.Add(new OracleParameter("departmentId", departmentId));
+
+                using (OracleDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        employees.Add(new Employee
+                        {
+                            EMP_CODE = reader.GetInt32(reader.GetOrdinal("EMP_CODE")),
+                            EMP_NAME = reader.GetString(reader.GetOrdinal("EMP_NAME")),
+                            DESIGNATION = reader.GetInt32(reader.GetOrdinal("DESIGNATION")),
+                            DOB = reader.GetDateTime(reader.GetOrdinal("DOB")),
+                            EMAIL = reader.GetString(reader.GetOrdinal("EMAIL")),
+                            PHONE_NO = reader.GetString(reader.GetOrdinal("PHONE_NO")),
+                            ADDRESS = reader.GetString(reader.GetOrdinal("ADDRESS"))
+                        });
+                    }
+                }
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error fetching employees: {ex.Message}");
+    }
+
+    return employees;
+}
+--------------------------------------------------------------------------------------------
+
+ Partial View (_EmployeeList.cshtml)
+
+@model List<Employee> <!-- Replace 'Employee' with your actual model class -->
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Employee Code</th>
+            <th>Name</th>
+            <th>Designation</th>
+            <th>DOB</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Address</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var employee in Model)
+        {
+            <tr>
+                <td>@employee.EMP_CODE</td>
+                <td>@employee.EMP_NAME</td>
+                <td>@employee.DESIGNATION</td>
+                <td>@employee.DOB</td>
+                <td>@employee.EMAIL</td>
+                <td>@employee.PHONE_NO</td>
+                <td>@employee.ADDRESS</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+--------------------------------------------------------------------
+controller
+public ActionResult GetEmployeesByDepartment(int departmentId)
+{
+    // Fetch employees from the database
+    var employees = EmployeeDBConnector.GetEmployeesByDepartment(departmentId);
+
+    // Return a partial view with employee data
+    return PartialView("_EmployeeList", employees);
+}
+-------------------------------------------------------------------
+View
+
+<div class="department-container">
+    @if (ViewBag.Departments != null)
+    {
+        foreach (var department in ViewBag.Departments)
+        {
+            <div class="department" id="@department.Replace(" ", "")Dept" onclick="loadEmployees(@department.Key)">
+                <h3>@department.Value</h3>
+                <hr />
+                <p>Short description of the @department.Value department.</p>
+            </div>
+        }
+    }
+    else
+    {
+        <p>No departments available.</p>
+    }
+</div>
+
+<div id="employee-list">
+    <!-- Employee details will be dynamically loaded here -->
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    function loadEmployees(departmentId) {
+        $.ajax({
+            url: '@Url.Action("GetEmployeesByDepartment", "Employees")',
+            type: 'GET',
+            data: { departmentId: departmentId },
+            success: function (data) {
+                $('#employee-list').html(data); // Load the returned HTML into the div
+            },
+            error: function (xhr, status, error) {
+                alert('Error loading employees: ' + error);
+            }
+        });
+    }
+</script>
+
